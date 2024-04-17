@@ -1,173 +1,176 @@
+use std::collections::HashMap;
 use std::io;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time;
 
-#[derive(Debug, Clone)]
-pub struct Bill {
-    id: u128,
+#[derive(Debug)]
+struct Bill {
     name: String,
-    amount: f64
+    amount: f64,
 }
+
+type Bills = HashMap<String, Bill>;
 
 fn main() {
-    let mut bills:Vec<Bill> = Vec::new();
-    while let Ok(selected) = reader(Some("
-    ==Manage Bills==
-    Select an option:
-    1.Add Bills
-    2.View Bill
-    3.Remove bill
-    4.Update Bill
-    5.All Bills
-    ")){
-        let selected_str = selected.as_str();
-        match selected_str {
-            "1" => {
-                match  add_bill(&mut bills) {
-                    Ok(msg) =>  println!("{:?}", msg),
-                    Err(err) => println!("{:?}",err)
-                }
-            },
-            "2" => {
-                match view_bill(&bills) {
-                    Ok(bill) => {
-                        println!("Your bill is -> {:?}", bill);
-                    }
-                    Err(err) => println!("{:?}", err)
-                }
-            },
-            "3" => {
-                match remove_bill(&mut bills){
-                    Ok(msg) => println!("{:?}", msg),
-                    Err(err) => println!("{:?}",err)
-                }
-            },
-            "4" => {
-                match update_bill(&mut bills){
-                    Ok(msg) => println!("{:?}", msg),
-                    Err(err) => println!("{:?}", err)
-                }
-            }
-            "5" => {
-                println!("{:?}", bills)
-            }
-            _ => println!("Selected option is not valid.")
+    let mut bills: Bills = HashMap::new();
+
+    loop {
+        println!(
+            "
+            < Bill Management Project >
+            1. View all bills
+            2. View a bill
+            3. Add new bill
+            4. Update a bill
+            5. Delete a bill
+            6. Total
+        "
+        );
+        let chosen = readline("Select your option:");
+
+        match chosen.as_str() {
+            "1" => view_all_bills_interface(&bills),
+            "2" => view_bill_interface(&bills),
+            "3" => add_bill_interface(&mut bills),
+            "4" => update_bill_interface(&mut bills),
+            "5" => delete_bill_interface(&mut bills),
+            "6" => show_total_interface(&mut bills),
+            _ => {}
         }
     }
 }
 
-
-pub fn reader(text: Option<&str>) -> io::Result<String> {
-    if let Some(text) = text {
-        println!("{}", text);
-    }
+fn readline(prompt: &str) -> String {
+    println!("{}", prompt);
     let mut buffer = String::new();
-    io::stdin().read_line(&mut buffer)?;
-    return Ok(String::from(buffer.trim()));
+    if let Ok(_) = io::stdin().read_line(&mut buffer) {
+        String::from(buffer.trim())
+    } else {
+        panic!("Something went wrong while taking input from user.")
+    }
 }
 
-fn add_bill(bills: &mut Vec<Bill>) -> Result<String, String> {
-    let mut bill_name = String::new();
+fn view_all_bills_interface(bills: &Bills) {
+    for key in bills.keys() {
+        let bill = bills.get(key).unwrap();
+        println!(
+            "- ID = {:?} | - Name = {:?} | - Amount = {:?}",
+            key, bill.name, bill.amount
+        );
+    }
+}
+
+fn add_bill_interface(bills: &mut Bills) {
+    let mut bill_name: String = String::new();
+    loop {
+        let bill_name_str = readline("Enter name of the bill: ");
+        if bill_name_str.len() == 0 {
+            println!("Name of the bill is required.\n");
+        } else {
+            bill_name = bill_name_str;
+            break;
+        }
+    }
+
     let mut bill_amount: f64 = 0f64;
-
-   while let Ok(name) =  reader(Some("Enter new bill name.")){
-       if !(name.len() > 0) {
-            println!("Enter a valid name.");
-           continue;
-       }
-       bill_name = name;
-       while let Ok(amount_str) = reader(Some("Enter new bill amount.")){
-           if let Ok(amount) = amount_str.parse::<f64>(){
-                bill_amount  = amount;
-           } else{
-               println!("Enter a valid amount.");
-               continue;
-           }
-           let id = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-           let new_bill = Bill{id , name: bill_name, amount: bill_amount};
-           bills.push(new_bill);
-           return Ok(String::from("Bill added successfully."));
-       }
-       return Err(String::from("Error"));
-
-   }
-    return Err(String::from("Error"));
-}
-fn view_bill(bills: &Vec<Bill>) -> Result<Bill, String>{
-    while let Ok(id_str) = reader(Some("Enter bill id.")){
-        if let Ok(id) = id_str.parse::<u128>() {
-            // TODO: Review this
-            return  match bills.iter().position(|bill| bill.id == id){
-                 Some(index) => {
-                     let bill = &bills[index];
-                     return Ok(bill.to_owned());
-                 },
-                 None => Err(String::from("Bill not found"))
-             }
+    loop {
+        let bill_amount_str = readline("Enter amount of the bill: ");
+        if bill_amount_str.len() == 0 {
+            println!("Amount of the bill is required.\n");
         } else {
-            println!("Enter a valid bill id.")
-        }
-    }
-    return Err(String::from("Bill not found."));
-
-}
-
-fn remove_bill(bills: &mut Vec<Bill>) -> Result<String, String>{
-    while let Ok(id_str) = reader(Some("Enter bill id.")){
-        if let Ok(id) = id_str.parse::<u128>() {
-            return match bills.iter().position(|bill| bill.id == id) {
-                Some(index) => {
-                    let bill = &bills[index];
-                    let mut new_bills: Vec<Bill> = Vec::new();
-                    for b in bills.to_owned() {
-                        if b.id != bill.id {
-                            new_bills.push(b);
-                        }
-                    }
-                    bills.splice(.., new_bills);
-                    Ok(String::from("Bill deleted successfully."))
-                },
-                None => Err(String::from("Bill not found"))
-
+            if let Ok(parsed_amount) = bill_amount_str.parse::<f64>() {
+                bill_amount = parsed_amount;
+                break;
+            } else {
+                println!("Enter a valid amount.");
             }
-        } else {
-            println!("Enter valid bill id.")
         }
     }
-    return Err(String::from("Bill not found."));
+
+    let bill = Bill {
+        name: bill_name,
+        amount: bill_amount,
+    };
+    let id: u128 = get_new_id();
+    bills.insert(id.to_string(), bill);
+    println!("New bill added successfully")
 }
 
+fn get_new_id() -> u128 {
+    let now = time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH)
+        .unwrap();
+    now.as_millis()
+}
 
-fn update_bill(bills: &mut Vec<Bill>) -> Result<String, String>
-{
-    while let Ok(id_str) = reader(Some("Enter bill id.")){
-        if let Ok(id) = id_str.parse::<u128>() {
-            // TODO: Review this
-            return match bills.iter().position(|bill| bill.id == id) {
-                Some(index) => {
-                    let bill = &bills[index];
-                    while let Ok(new_name) = reader(Some("Enter new name of the bill.")){
-                            if !(new_name.len() > 0){
-                                println!("Enter a valid name");
-                                continue;
-                            }
-                            while let Ok(amount_str) = reader(Some("Enter new amount")){
-                                if let Ok(amount) = amount_str.parse::<f64>(){
-                                    let new_bill = Bill{id: bill.id, name: new_name.to_owned(), amount};
-                                    bills[index] = new_bill;
-                                    return Ok(String::from("Bill updated successfully."))
-                                } else {
-                                    println!("Enter a valid amount.")
-                                }
-                            }
-                    }
-                    return Err(String::from("Bill not found"))
-                },
-                None => Err(String::from("Bill not found"))
-            }
-        } else {
-            println!("Enter a valid bill id.")
+fn view_bill_interface(bills: &Bills) {
+    let bill_id = readline("Enter the id of the bill: ");
+    if let Some(bill) = bills.get(bill_id.as_str()) {
+        println!(
+            "- ID = {:?} | - Name = {:?} | - Amount = {:?}",
+            bill_id, bill.name, bill.amount
+        );
+    } else {
+        println!("No such bill exists with that ID.")
+    }
+}
+
+fn delete_bill_interface(bills: &mut Bills) {
+    let bill_id = readline("Enter the id of the bill to delete: ");
+    if let Some(_) = bills.get(bill_id.as_str()) {
+        bills.remove(bill_id.as_str());
+        println!("Bill deleted successfully.")
+    } else {
+        println!("No such bill exists with that ID.")
+    }
+}
+
+fn show_total_interface(bills: &Bills) {
+    let mut total: f64 = 0f64;
+
+    for key in bills.keys() {
+        if let Some(bill) = bills.get(key) {
+            total += bill.amount;
         }
     }
-    return Err(String::from("Bill not found."));
 
+    println!("Tota is = {}", total)
+}
+
+fn update_bill_interface(bills: &mut Bills) {
+    let bill_id = readline("Enter the id of bill to update:\n");
+    if let Some(_) = bills.get(bill_id.as_str()) {
+        let mut bill_new_name: String = String::new();
+        loop {
+            let bill_name = readline("Enter new name of the bill: ");
+            if bill_name.len() != 0 {
+                bill_new_name = bill_name;
+                break;
+            } else {
+                println!("Name is required.")
+            }
+        }
+
+        let mut bill_new_amount: f64 = 0f64;
+        loop {
+            let bill_amount_str = readline("Enter new amount of the bill: ");
+            if bill_amount_str.len() != 0 {
+                if let Ok(parsed_amount) = bill_amount_str.parse::<f64>() {
+                    bill_new_amount = parsed_amount;
+                    break;
+                };
+            } else {
+                println!("Amount is required.")
+            }
+        }
+
+        bills.insert(
+            bill_id,
+            Bill {
+                name: bill_new_name,
+                amount: bill_new_amount,
+            },
+        );
+    } else {
+        println!("Invalid bill ID.")
+    }
 }
